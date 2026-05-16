@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>公共图片墙 - 云端存储 | 全球同步</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e9eef3 100%);
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* 头部 */
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 32px;
+            padding: 24px 32px;
+            margin-bottom: 32px;
+            color: white;
+            box-shadow: 0 15px 30px -12px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: #3b82f6;
+            font-size: 0.7rem;
+            padding: 4px 14px;
+            border-radius: 40px;
+            font-weight: 500;
+        }
+
+        .sub {
+            color: #94a3b8;
+            margin-top: 12px;
+            font-size: 0.85rem;
+        }
+
+        .info-bar {
+            background: rgba(255,255,255,0.1);
+            border-radius: 40px;
+            padding: 12px 20px;
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.8rem;
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 5px #22c55e;
+        }
+
+        .led.red {
+            background: #ef4444;
+            box-shadow: none;
+        }
+
+        .led.yellow {
+            background: #eab308;
+            box-shadow: 0 0 5px #eab308;
+        }
+
+        .refresh-btn {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #2563eb;
+        }
+
+        /* 卡片网格 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 28px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 12px 28px -8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 36px -12px rgba(0,0,0,0.2);
+        }
+
+        .card-header {
+            background: #fefefe;
+            padding: 16px 20px;
+            border-bottom: 2px solid #eef2ff;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #0f172a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-number {
+            background: #eef2ff;
+            color: #1e40af;
+            padding: 2px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+        }
+
+        /* 图片区域 */
+        .image-frame {
+            aspect-ratio: 1 / 1;
+            background: #f1f5f9;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .image-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .placeholder-icon {
+            text-align: center;
+            color: #94a3b8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .upload-hint {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            color: white;
+            font-size: 0.7rem;
+            padding: 5px 10px;
+            border-radius: 30px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+
+        .image-frame:hover .upload-hint {
+            opacity: 1;
+        }
+
+        /* 操作区 */
+        .card-actions {
+            padding: 16px 18px 18px;
+            background: white;
+        }
+
+        .upload-btn {
+            width: 100%;
+            background: #0f172a;
+            border: none;
+            color: white;
+            padding: 11px 0;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .upload-btn:hover {
+            background: #1e293b;
+            transform: scale(0.98);
+        }
+
+        .time-info {
+            margin-top: 12px;
+            font-size: 0.7rem;
+            color: #475569;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 20px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .loading-indicator {
+            font-size: 0.7rem;
+            color: #3b82f6;
+            text-align: center;
+            margin-top: 8px;
+            display: none;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            color: #5b6e8c;
+            font-size: 0.7rem;
+            padding: 20px;
+        }
+
+        .toast-msg {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* 灯箱样式 */
+        .lightbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: zoom-out;
+            backdrop-filter: blur(5px);
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .lightbox-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            cursor: zoom-in;
+            transition: transform 0.2s ease;
+        }
+
+        .lightbox-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            transition: background 0.2s;
+        }
+
+        .lightbox-close:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .lightbox-zoom-info {
+            position: absolute;
+            bottom: -35px;
+            left: 0;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.75rem;
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            padding: 10px 15px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            transition: background 0.2s;
+            user-select: none;
+        }
+
+        .lightbox-nav:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .lightbox-nav.prev {
+            left: -50px;
+        }
+
+        .lightbox-nav.next {
+            right: -50px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>
+            🌍 三冰734跑商价格更新-再就业/菠若蜜
+            <span class="badge">云端存储 | 全球同步</span>
+        </h1>
+        
+        <div class="info-bar">
+            <div class="sync-status">
+                <span class="led" id="statusLed"></span>
+                <span id="statusText">加载中...</span>
+            </div>
+            <button class="refresh-btn" id="manualRefreshBtn">🔄 手动刷新</button>
+        </div>
+    </div>
+
+    
+
+    <div class="grid" id="cardsGrid"></div>
+<!--    <footer>⚡ 图片托管于 ImgBB 免费图床 | 数据存储于 Gitee 仓库 | jsDelivr CDN 加速读取 | 全球所有人共同编辑</footer>-->
+</div>
+<div id="toastMsg" class="toast-msg"></div>
+
+<!-- 灯箱组件 -->
+<div id="lightboxOverlay" class="lightbox-overlay">
+    <div class="lightbox-content" id="lightboxContent">
+        <span class="lightbox-close" id="lightboxClose">×</span>
+        <img id="lightboxImage" src="" alt="放大查看">
+        <span class="lightbox-zoom-info">点击图片放大 | 滚轮缩放 | ESC关闭</span>
+    </div>
+    <span class="lightbox-nav prev" id="lightboxPrev" style="display:none;">‹</span>
+    <span class="lightbox-nav next" id="lightboxNext" style="display:none;">›</span>
+</div>
+
+<script>
+    // ========== ImgBB 配置 ==========
+    const IMGBB_API_KEY = 'f734ac95207670c87d48191847bb76c1';  // 公开演示key，如失效可自己注册替换
+
+    // 标题列表（数量即为图片框数量）
+    const TITLES = ['阴平道', '古道', '白水', '蒹葭', '刚氏道', '汉中', '标题八', '标题九', '标题十'];
+
+    // 全局变量
+    let imagesData = [];
+    let uploadingFlags = new Array(TITLES.length).fill(false);
+    
+    // ========== Gitee 硬编码配置 ==========
+    // 请在此处填写你的 Gitee 配置信息
+    const giteeConfig = {
+        owner: 'gavin1048',      // 替换为你的 Gitee 用户名
+        repo: 'image-wall-data',           // 替换为你的仓库名
+        token: '25f85a8df3f3890e421f95993da60a70',        // 替换为你的私人令牌
+        branch: 'master'                  // 分支名称，默认为 master
+    };
+
+    // ========== 工具函数 ==========
+    function showToast(msg, duration = 2500) {
+        const toast = document.getElementById('toastMsg');
+        toast.textContent = msg;
+        toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, duration);
+    }
+
+    function formatTime(isoString) {
+        if (!isoString) return '从未上传';
+        const date = new Date(isoString);
+        return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
+    }
+
+    function updateStatusUI(status, message) {
+        const led = document.getElementById('statusLed');
+        const text = document.getElementById('statusText');
+        if (status === 'connected') {
+            led.className = 'led';
+            text.textContent = `✅ ${message}`;
+        } else if (status === 'loading') {
+            led.className = 'led yellow';
+            text.textContent = `⏳ ${message}`;
+        } else {
+            led.className = 'led red';
+            text.textContent = `⚠️ ${message}`;
+        }
+    }
+
+    // ========== 图片上传到 ImgBB ==========
+    async function uploadToImgBB(file) {
+        return new Promise((resolve, reject) => {
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('key', IMGBB_API_KEY);
+
+            fetch('https://api.imgbb.com/1/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.data && data.data.url) {
+                    let imgUrl = data.data.url;
+                    if (imgUrl.startsWith('http://')) imgUrl = imgUrl.replace('http://', 'https://');
+                    resolve(imgUrl);
+                } else {
+                    reject(new Error(data.error?.message || '图床上传失败'));
+                }
+            })
+            .catch(reject);
+        });
+    }
+
+    // ========== Gitee 数据操作 ==========
+    // 通过 jsDelivr CDN 读取数据（读取速度快）
+    async function loadFromGitee() {
+    if (!giteeConfig || !giteeConfig.owner || !giteeConfig.repo) {
+        updateStatusUI('error', '请先配置Gitee信息');
+        return false;
+    }
+
+    updateStatusUI('loading', '从云端加载数据...');
+
+    try {
+        // 使用 Gitee API 读取文件内容（支持跨域）
+        const apiUrl = `https://gitee.com/api/v5/repos/${giteeConfig.owner}/${giteeConfig.repo}/contents/data.json`;
+        const response = await fetch(`${apiUrl}?access_token=${giteeConfig.token}&ref=${giteeConfig.branch}`, {
+            cache: 'no-cache'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        // API 返回的内容是 base64 编码的，需要解码
+        const content = result.content;
+        const decodedContent = decodeURIComponent(escape(atob(content)));
+        const data = JSON.parse(decodedContent);
+
+        if (data && data.images && Array.isArray(data.images)) {
+            const targetLength = TITLES.length;
+            if (data.images.length === targetLength) {
+                imagesData = data.images;
+            } else if (data.images.length > targetLength) {
+                imagesData = data.images.slice(0, targetLength);
+                console.warn(`云端数据数量(${data.images.length})超过TITLES数量(${targetLength})，已自动截取`);
+            } else {
+                imagesData = [...data.images];
+                for (let i = data.images.length; i < targetLength; i++) {
+                    imagesData.push({ url: '', time: null });
+                }
+                console.warn(`云端数据数量(${data.images.length})不足TITLES数量(${targetLength})，已自动填充`);
+            }
+            updateStatusUI('connected', `已从云端同步 (${new Date().toLocaleTimeString()})`);
+            saveToLocal();
+            return true;
+        } else {
+            throw new Error('数据格式错误，data.json 应包含 images 数组');
+        }
+    } catch (err) {
+        console.error('加载失败:', err);
+        updateStatusUI('error', `加载失败: ${err.message}，使用本地缓存`);
+        loadFromLocal();
+        return false;
+    }
+}
+
+    // 通过 Gitee API 写入数据（写入需要API，因为需要认证）
+    async function saveToGitee() {
+        if (!giteeConfig || !giteeConfig.owner || !giteeConfig.repo || !giteeConfig.token) {
+            updateStatusUI('error', '请先配置Gitee信息');
+            return false;
+        }
+
+        try {
+            // 1. 先获取文件的 SHA
+            const getUrl = `https://gitee.com/api/v5/repos/${giteeConfig.owner}/${giteeConfig.repo}/contents/data.json`;
+            const getRes = await fetch(`${getUrl}?access_token=${giteeConfig.token}`);
+
+            if (!getRes.ok) {
+                throw new Error('获取文件信息失败');
+            }
+
+            const fileInfo = await getRes.json();
+
+            // 2. 准备要写入的内容
+            const content = JSON.stringify({ images: imagesData }, null, 2);
+            const encodedContent = btoa(unescape(encodeURIComponent(content)));
+
+            // 3. 更新文件
+            const updateRes = await fetch(getUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    access_token: giteeConfig.token,
+                    content: encodedContent,
+                    sha: fileInfo.sha,
+                    message: `Update images - ${new Date().toLocaleString()}`,
+                    branch: giteeConfig.branch
+                })
+            });
+
+            if (updateRes.ok) {
+                updateStatusUI('connected', `已保存到云端 (${new Date().toLocaleTimeString()})`);
+                saveToLocal();
+                return true;
+            } else {
+                const errData = await updateRes.json();
+                throw new Error(errData.message || '保存失败');
+            }
+        } catch (err) {
+            console.error('保存到Gitee失败:', err);
+            updateStatusUI('error', `保存失败: ${err.message}，已保存到本地`);
+            saveToLocal();
+            return false;
+        }
+    }
+
+    // 本地存储备份
+    function saveToLocal() {
+        localStorage.setItem('public_image_wall_data', JSON.stringify(imagesData));
+    }
+
+    function loadFromLocal() {
+        const stored = localStorage.getItem('public_image_wall_data');
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length === TITLES.length) {
+                    imagesData = parsed;
+                    return;
+                }
+            } catch(e) {}
+        }
+        // 初始化空数据
+        imagesData = [];
+        for (let i = 0; i < TITLES.length; i++) {
+            imagesData.push({ url: '', time: null });
+        }
+    }
+
+    // ========== UI 渲染 ==========
+    function renderSingleCard(index) {
+        const card = document.getElementById(`card-${index}`);
+        if (!card) return;
+        const data = imagesData[index] || { url: '', time: null };
+
+        const imgFrame = card.querySelector('.image-frame');
+        if (imgFrame) {
+            if (data.url) {
+                imgFrame.innerHTML = `
+                    <img src="${data.url}" alt="图片" loading="lazy" data-index="${index}" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\'placeholder-icon\'><span>🖼️</span><span>加载失败</span></div>'">
+                    <div class="upload-hint">� 点击查看 | 📸 按钮替换</div>
+                `;
+            } else {
+                imgFrame.innerHTML = `
+                    <div class="placeholder-icon">
+                        <span style="font-size:40px;">🖼️</span>
+                        <span>点击上传图片</span>
+                    </div>
+                    <div class="upload-hint">📸 点击上传</div>
+                `;
+            }
+
+            const newFrame = card.querySelector('.image-frame');
+            newFrame.style.cursor = data.url ? 'zoom-in' : 'pointer';
+            newFrame.onclick = (e) => {
+                e.stopPropagation();
+                if (data.url) {
+                    openLightbox(index);
+                } else {
+                    triggerUpload(index);
+                }
+            };
+        }
+
+        const timeSpan = card.querySelector('.time-text');
+        if (timeSpan) {
+            timeSpan.textContent = `🕒 ${formatTime(data.time)}`;
+        }
+    }
+
+    function renderAllCards() {
+        const grid = document.getElementById('cardsGrid');
+        grid.innerHTML = '';
+
+        for (let i = 0; i < TITLES.length; i++) {
+            const data = imagesData[i] || { url: '', time: null };
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.id = `card-${i}`;
+
+            const imageInner = data.url ?
+                `<img src="${data.url}" alt="图片" loading="lazy" data-index="${i}" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\'placeholder-icon\'><span>🖼️</span><span>加载失败</span></div>'">` :
+                `<div class="placeholder-icon"><span style="font-size:40px;">🖼️</span><span>点击上传图片</span></div>`;
+
+            const hintText = data.url ? '🔍 点击查看 | 📸 按钮替换' : '📸 点击上传';
+            const cursorStyle = data.url ? 'cursor:zoom-in;' : 'cursor:pointer;';
+
+            card.innerHTML = `
+                <div class="card-header">
+                    <span>${TITLES[i]}</span>
+                    <span class="card-number">#${i+1}</span>
+                </div>
+                <div class="image-frame" style="${cursorStyle}">
+                    ${imageInner}
+                    <div class="upload-hint">${hintText}</div>
+                </div>
+                <div class="card-actions">
+                    <button class="upload-btn">
+                        📤 上传/替换图片
+                    </button>
+                    <div class="time-info">
+                        <span>📅</span>
+                        <span class="time-text">🕒更新时间  ${formatTime(data.time)}</span>
+                    </div>
+                    <div class="loading-indicator"></div>
+                </div>
+            `;
+            grid.appendChild(card);
+        }
+
+        // 绑定事件
+        for (let i = 0; i < TITLES.length; i++) {
+            const card = document.getElementById(`card-${i}`);
+            const imgFrame = card.querySelector('.image-frame');
+            const uploadBtn = card.querySelector('.upload-btn');
+
+            imgFrame.onclick = (e) => {
+                e.stopPropagation();
+                const data = imagesData[i] || { url: '', time: null };
+                if (data.url) {
+                    openLightbox(i);
+                } else {
+                    triggerUpload(i);
+                }
+            };
+            uploadBtn.onclick = (e) => {
+                e.preventDefault();
+                triggerUpload(i);
+            };
+        }
+    }
+
+    function setLoading(index, loading) {
+        const card = document.getElementById(`card-${index}`);
+        if (!card) return;
+        const loadingDiv = card.querySelector('.loading-indicator');
+        if (loadingDiv) {
+            if (loading) {
+                loadingDiv.textContent = '⏳ 上传中，请稍候...';
+                loadingDiv.style.display = 'block';
+            } else {
+                loadingDiv.style.display = 'none';
+            }
+        }
+    }
+
+    // ========== 上传主逻辑 ==========
+    async function triggerUpload(index) {
+        if (uploadingFlags[index]) {
+            showToast('正在上传中，请稍后...');
+            return;
+        }
+
+        if (!giteeConfig || !giteeConfig.owner || !giteeConfig.repo) {
+            showToast('请先在顶部配置Gitee信息');
+            return;
+        }
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/jpeg,image/png,image/gif,image/webp';
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 32 * 1024 * 1024) {
+                showToast('图片不能超过32MB');
+                return;
+            }
+
+            uploadingFlags[index] = true;
+            setLoading(index, true);
+
+            try {
+                // 1. 上传图片到 ImgBB
+                const imageUrl = await uploadToImgBB(file);
+
+                // 2. 更新本地数据
+                imagesData[index] = {
+                    url: imageUrl,
+                    time: new Date().toISOString()
+                };
+
+                // 3. 保存到 Gitee
+                await saveToGitee();
+
+                // 4. 刷新UI
+                renderSingleCard(index);
+                showToast(`✅ ${TITLES[index]} 图片已更新，全球可见！`);
+
+            } catch (err) {
+                console.error(err);
+                showToast(`❌ 上传失败: ${err.message}`);
+            } finally {
+                uploadingFlags[index] = false;
+                setLoading(index, false);
+            }
+        };
+        fileInput.click();
+    }
+
+    async function manualRefresh() {
+        if (!giteeConfig || !giteeConfig.owner || !giteeConfig.repo) {
+            showToast('请先配置Gitee信息');
+            return;
+        }
+        showToast('正在同步云端数据...');
+        await loadFromGitee();
+        renderAllCards();
+        showToast('同步完成');
+    }
+
+    // ========== 灯箱功能 ==========
+    let currentLightboxIndex = -1;
+    let lightboxScale = 1;
+
+    function openLightbox(index) {
+        currentLightboxIndex = index;
+        lightboxScale = 1;
+
+        const overlay = document.getElementById('lightboxOverlay');
+        const image = document.getElementById('lightboxImage');
+        const content = document.getElementById('lightboxContent');
+        const prevBtn = document.getElementById('lightboxPrev');
+        const nextBtn = document.getElementById('lightboxNext');
+
+        const data = imagesData[index] || { url: '' };
+        image.src = data.url;
+        content.style.transform = 'scale(1)';
+
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        // 显示导航按钮（如果有其他图片）
+        const hasPrev = index > 0 && imagesData[index - 1] && imagesData[index - 1].url;
+        const hasNext = index < imagesData.length - 1 && imagesData[index + 1] && imagesData[index + 1].url;
+        prevBtn.style.display = hasPrev ? 'block' : 'none';
+        nextBtn.style.display = hasNext ? 'block' : 'none';
+    }
+
+    function closeLightbox() {
+        const overlay = document.getElementById('lightboxOverlay');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        currentLightboxIndex = -1;
+        lightboxScale = 1;
+    }
+
+    function navigateLightbox(direction) {
+        let newIndex = currentLightboxIndex + direction;
+
+        // 查找有图片的下一张/上一张
+        while (newIndex >= 0 && newIndex < imagesData.length) {
+            if (imagesData[newIndex] && imagesData[newIndex].url) {
+                break;
+            }
+            newIndex += direction;
+        }
+
+        if (newIndex >= 0 && newIndex < imagesData.length) {
+            openLightbox(newIndex);
+        }
+    }
+
+    function handleLightboxWheel(e) {
+        e.preventDefault();
+        const content = document.getElementById('lightboxContent');
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        lightboxScale = Math.max(0.5, Math.min(3, lightboxScale + delta));
+        content.style.transform = `scale(${lightboxScale})`;
+    }
+
+    function handleLightboxContentClick(e) {
+        e.stopPropagation();
+        const content = document.getElementById('lightboxContent');
+        lightboxScale = lightboxScale >= 2 ? 1 : 2;
+        content.style.transform = `scale(${lightboxScale})`;
+    }
+
+    // 绑定灯箱事件
+    function bindLightboxEvents() {
+        const overlay = document.getElementById('lightboxOverlay');
+        const closeBtn = document.getElementById('lightboxClose');
+        const content = document.getElementById('lightboxContent');
+        const prevBtn = document.getElementById('lightboxPrev');
+        const nextBtn = document.getElementById('lightboxNext');
+
+        overlay.onclick = closeLightbox;
+        closeBtn.onclick = closeLightbox;
+        content.onclick = handleLightboxContentClick;
+        content.onwheel = handleLightboxWheel;
+        prevBtn.onclick = (e) => {
+            e.stopPropagation();
+            navigateLightbox(-1);
+        };
+        nextBtn.onclick = (e) => {
+            e.stopPropagation();
+            navigateLightbox(1);
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (currentLightboxIndex >= 0) {
+                if (e.key === 'Escape') {
+                    closeLightbox();
+                } else if (e.key === 'ArrowLeft') {
+                    navigateLightbox(-1);
+                } else if (e.key === 'ArrowRight') {
+                    navigateLightbox(1);
+                }
+            }
+        });
+    }
+
+    // ========== 初始化 ==========
+    async function init() {
+        loadFromLocal();
+        renderAllCards();
+
+        // 检查硬编码配置是否有效
+        const isConfigValid = giteeConfig && giteeConfig.owner && giteeConfig.repo && giteeConfig.token;
+        if (isConfigValid) {
+            await loadFromGitee();
+            renderAllCards();
+        } else {
+            updateStatusUI('error', '请在代码中配置Gitee信息');
+        }
+
+        document.getElementById('manualRefreshBtn').onclick = () => manualRefresh();
+
+        // 绑定灯箱事件
+        bindLightboxEvents();
+    }
+
+    init();
+</script>
+</body>
+</html>
