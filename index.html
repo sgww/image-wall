@@ -651,11 +651,25 @@
         const grid = document.getElementById('cardsGrid');
         grid.innerHTML = '';
 
-        for (let i = 0; i < TITLES.length; i++) {
-            const data = imagesData[i] || { url: '', time: null };
+        // 按更新时间排序：有图片的按时间倒序排，空卡片排在最后
+        const sortedIndices = imagesData
+            .map((item, idx) => ({ idx, item }))
+            .sort((a, b) => {
+                if (!a.item.url && b.item.url) return 1;
+                if (a.item.url && !b.item.url) return -1;
+                if (!a.item.url && !b.item.url) return 0;
+                const timeA = a.item.time ? new Date(a.item.time).getTime() : 0;
+                const timeB = b.item.time ? new Date(b.item.time).getTime() : 0;
+                return timeB - timeA;
+            });
+
+        sortedIndices.forEach((sorted) => {
+            const i = sorted.idx;
+            const data = sorted.item || { url: '', time: null };
             const card = document.createElement('div');
             card.className = 'card';
             card.id = `card-${i}`;
+            card.dataset.originalIndex = i;
 
             const imageInner = data.url ?
                 `<img src="${data.url}" alt="图片" loading="lazy" data-index="${i}" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\'placeholder-icon\'><span>🖼️</span><span>加载失败</span></div>'">` :
@@ -685,26 +699,29 @@
                 </div>
             `;
             grid.appendChild(card);
-        }
+        });
 
         // 绑定事件
         for (let i = 0; i < TITLES.length; i++) {
             const card = document.getElementById(`card-${i}`);
+            if (!card) continue;
             const imgFrame = card.querySelector('.image-frame');
             const uploadBtn = card.querySelector('.upload-btn');
 
             imgFrame.onclick = (e) => {
                 e.stopPropagation();
-                const data = imagesData[i] || { url: '', time: null };
+                const originalIdx = parseInt(card.dataset.originalIndex);
+                const data = imagesData[originalIdx] || { url: '', time: null };
                 if (data.url) {
-                    openLightbox(i);
+                    openLightbox(originalIdx);
                 } else {
-                    triggerUpload(i);
+                    triggerUpload(originalIdx);
                 }
             };
             uploadBtn.onclick = (e) => {
                 e.preventDefault();
-                triggerUpload(i);
+                const originalIdx = parseInt(card.dataset.originalIndex);
+                triggerUpload(originalIdx);
             };
         }
     }
