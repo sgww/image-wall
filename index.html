@@ -108,6 +108,34 @@
             background: #2563eb;
         }
 
+        /* 搜索框样式 */
+        .search-box {
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 50px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .search-box input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-box input::placeholder {
+            color: #94a3b8;
+        }
+
         /* 卡片网格 */
         .grid {
             display: grid;
@@ -383,7 +411,10 @@
         </div>
     </div>
 
-    
+    <!-- 搜索框 -->
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 搜索地点名称...">
+    </div>
 
     <div class="grid" id="cardsGrid"></div>
 <!--    <footer>⚡ 图片托管于 ImgBB 免费图床 | 数据存储于 Gitee 仓库 | jsDelivr CDN 加速读取 | 全球所有人共同编辑</footer>-->
@@ -406,11 +437,12 @@
     const IMGBB_API_KEY = 'f734ac95207670c87d48191847bb76c1';  // 公开演示key，如失效可自己注册替换
 
     // 标题列表（数量即为图片框数量）
-    const TITLES = ['阴平道', '古道', '白水', '蒹葭', '刚氏道', '汉中', '绵竹', '成都', '汉昌', '阆中', '梓潼', '涪县', '下辩', '朐县'];
+    const TITLES = ['徙河','潞县','土垠','蓟县','易县','琅琊','徐县','阴陵','陈留','濮阳','无锡','丹阳','阳羡','吴兴','钱塘','曲江','桂阳','泉陵','镡成','酉阳','江陵','巫县','房龄','章陵','新野','汉昌','阆中','刚氏道','故道','阴平道','渊泉','虎威','天水','成纪','戈居','高柳','广武','渔阳','徐无','泉州','临渝','阳乐','昌平','下邳','定陶','沛县','建业','曲阿','芜湖','浈阳','零陵','昭阳','酃县','茶陵','辰阳','梓潼','白水','蒹葭','姑臧','金城','祖厉','平城','代县','广宁','胶东','昌明','东武','东阿','东平陵','东莞','兰陵','平安','海陵','高邮','鄱阳','赣县','宜春','蕲春','临湘','江州','成都','绵竹','汉中','白帝城','富平','白土','朔方','云中','肤施','长子','高都','卢奴','元氏','甘陵','襄国','邯郸','广宗','许昌','东治','安丰','戈阳','平舆','槐里','郿县','上洛','长安','郑县','云阳','下邽','漆县','卢氏','宛县','鲁阳','平阳','荥阳','朝歌','临汾','当阳','夷陵','肥如','涿县','临淄','安丘','西海','广陵','吴县','海盐','柴桑','庐陵','郴县','昭陵','涪陵','广汉','朐县','涪县','下辨','平襄','街亭','临戎','大城','离石','逐鹿','居庸','鄄城','彭城','西陵','襄阳','上艾','南皮','平原','廪丘','陈县','合肥','宛陵','西阳','上庸','西城','陈仓','允吾','三水','高奴','晋阳','谢沐','信都','邺城','阳翟','汝阴','营浦','舞阴','蓝田','安阳','临晋','安邑','魏县','东垣','河阳','新安','洛阳']
 
     // 全局变量
     let imagesData = [];
     let uploadingFlags = new Array(TITLES.length).fill(false);
+    let searchKeyword = ''; // 搜索关键词
     
     // ========== Gitee 硬编码配置 ==========
     // 请在此处填写你的 Gitee 配置信息
@@ -653,7 +685,7 @@
         grid.innerHTML = '';
 
         // 按更新时间排序：有图片的按时间倒序排，空卡片排在最后
-        const sortedIndices = imagesData
+        let sortedIndices = imagesData
             .map((item, idx) => ({ idx, item }))
             .sort((a, b) => {
                 if (!a.item.url && b.item.url) return 1;
@@ -663,6 +695,14 @@
                 const timeB = b.item.time ? new Date(b.item.time).getTime() : 0;
                 return timeB - timeA;
             });
+
+        // 搜索过滤：如果有搜索关键词，只显示匹配的卡片
+        if (searchKeyword.trim()) {
+            const keyword = searchKeyword.trim().toLowerCase();
+            sortedIndices = sortedIndices.filter(({ idx }) => 
+                TITLES[idx].toLowerCase().includes(keyword)
+            );
+        }
 
         sortedIndices.forEach((sorted) => {
             const i = sorted.idx;
@@ -809,10 +849,12 @@
     // ========== 灯箱功能 ==========
     let currentLightboxIndex = -1;
     let lightboxScale = 1;
+    let isClosingFromPopState = false;
 
     function openLightbox(index) {
         currentLightboxIndex = index;
         lightboxScale = 1;
+        isClosingFromPopState = false;
 
         const overlay = document.getElementById('lightboxOverlay');
         const image = document.getElementById('lightboxImage');
@@ -832,6 +874,9 @@
         const hasNext = index < imagesData.length - 1 && imagesData[index + 1] && imagesData[index + 1].url;
         prevBtn.style.display = hasPrev ? 'block' : 'none';
         nextBtn.style.display = hasNext ? 'block' : 'none';
+
+        // 添加历史记录状态，让手机返回按钮关闭图片而不是页面
+        history.pushState({ lightboxOpen: true }, '', window.location.pathname + window.location.search + window.location.hash);
     }
 
     function closeLightbox() {
@@ -840,6 +885,11 @@
         document.body.style.overflow = '';
         currentLightboxIndex = -1;
         lightboxScale = 1;
+
+        // 如果不是从 popstate 触发的关闭，需要回退历史记录
+        if (!isClosingFromPopState && window.history.state && window.history.state.lightboxOpen) {
+            window.history.back();
+        }
     }
 
     function navigateLightbox(direction) {
@@ -905,6 +955,19 @@
                 }
             }
         });
+
+        // 监听历史记录变化，处理手机返回按钮
+        window.addEventListener('popstate', (e) => {
+            if (currentLightboxIndex >= 0) {
+                // 防止递归调用 history.back()
+                isClosingFromPopState = true;
+                const overlay = document.getElementById('lightboxOverlay');
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+                currentLightboxIndex = -1;
+                lightboxScale = 1;
+            }
+        });
     }
 
     // ========== 初始化 ==========
@@ -922,6 +985,13 @@
         }
 
         document.getElementById('manualRefreshBtn').onclick = () => manualRefresh();
+
+        // 绑定搜索框事件
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', (e) => {
+            searchKeyword = e.target.value;
+            renderAllCards();
+        });
 
         // 绑定灯箱事件
         bindLightboxEvents();
