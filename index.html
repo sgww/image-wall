@@ -731,15 +731,18 @@
                 console.warn(`云端数据数量(${data.images.length})不足TITLES数量(${targetLength})，已自动填充`);
             }
             updateStatusUI('connected', `已从云端同步 (${new Date().toLocaleTimeString()})`);
-            saveToLocal();
             return true;
         } else {
             throw new Error('数据格式错误，data.json 应包含 images 数组');
         }
     } catch (err) {
         console.error('加载失败:', err);
-        updateStatusUI('error', `加载失败: ${err.message}，使用本地缓存`);
-        loadFromLocal();
+        updateStatusUI('error', `加载失败: ${err.message}`);
+        // 初始化空数据
+        imagesData = [];
+        for (let i = 0; i < TITLES.length; i++) {
+            imagesData.push({ url: '', time: null });
+        }
         return false;
     }
 }
@@ -781,7 +784,6 @@
 
             if (updateRes.ok) {
                 updateStatusUI('connected', `已保存到云端 (${new Date().toLocaleTimeString()})`);
-                saveToLocal();
                 return true;
             } else {
                 const errData = await updateRes.json();
@@ -789,32 +791,8 @@
             }
         } catch (err) {
             console.error('保存到Gitee失败:', err);
-            updateStatusUI('error', `保存失败: ${err.message}，已保存到本地`);
-            saveToLocal();
+            updateStatusUI('error', `保存失败: ${err.message}`);
             return false;
-        }
-    }
-
-    // 本地存储备份
-    function saveToLocal() {
-        localStorage.setItem('public_image_wall_data', JSON.stringify(imagesData));
-    }
-
-    function loadFromLocal() {
-        const stored = localStorage.getItem('public_image_wall_data');
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                if (Array.isArray(parsed) && parsed.length === TITLES.length) {
-                    imagesData = parsed;
-                    return;
-                }
-            } catch(e) {}
-        }
-        // 初始化空数据
-        imagesData = [];
-        for (let i = 0; i < TITLES.length; i++) {
-            imagesData.push({ url: '', time: null });
         }
     }
 
@@ -1151,9 +1129,6 @@
 
     // ========== 初始化 ==========
     async function init() {
-        loadFromLocal();
-        renderAllCards();
-
         // 检查硬编码配置是否有效
         const isConfigValid = giteeConfig && giteeConfig.owner && giteeConfig.repo && giteeConfig.token;
         if (isConfigValid) {
@@ -1161,6 +1136,12 @@
             renderAllCards();
         } else {
             updateStatusUI('error', '请在代码中配置Gitee信息');
+            // 初始化空数据
+            imagesData = [];
+            for (let i = 0; i < TITLES.length; i++) {
+                imagesData.push({ url: '', time: null });
+            }
+            renderAllCards();
         }
 
         document.getElementById('manualRefreshBtn').onclick = () => manualRefresh();
